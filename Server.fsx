@@ -39,17 +39,6 @@ let logoutResponse: LogoutResponse = {
     message = "You've successfully logged out!"
 }
 
-type MyFeed = {
-    tweets: list<int * string>
-    mentions: list<string * string>
-}
-
-type NewTweet = {
-    username: string
-    messageId: int
-    message: string
-}
-
 let (|Regex|_|) pattern input =
     let m = Regex.Match(input, pattern) in
     if m.Success then Some (List.tail [ for g in m.Groups -> g.Value ]) else None
@@ -103,11 +92,16 @@ let tweetIt(username: string, tweetCount: int, tweet: string) =
     row.SetField("Tweet", tweet)
     try 
         tweets.Rows.Add(row)
-    with ex -> printfn "Could not register:  %A" ex
+    with ex -> printfn "Could not tweet:  %A" ex
 
     if tweet.Contains("@") then
         match tweet with
-        | Regex @"@([0-9A-Za-z]*)" [ mention ] -> mentions.Rows.Add(mention, username, tweet) |> ignore
+        | Regex "@([0-9A-Za-z]*)" [ mention ] -> 
+            let row = mentions.NewRow()
+            row.SetField("Username", mention)
+            row.SetField("Mentioner", username)
+            row.SetField("Tweet", tweet)
+            mentions.Rows.Add(row) |> ignore
         | _ -> printfn "Not a username"
         
 let retweetIt(username: string, tweetId: int, retweetCount: int) = 
@@ -121,8 +115,11 @@ let retweetIt(username: string, tweetId: int, retweetCount: int) =
 
 let follow(followee: string, follower: string) =
     let mutable response = String.Format("You started following {0}.", followee)
+    let row = followers.NewRow()
+    row.SetField("Username", followee)
+    row.SetField("Follower", follower)
     try 
-        followers.Rows.Add(followee, follower) |> ignore
+        followers.Rows.Add(row)
     with ex -> response <- "Could not follow: " + string(ex)
     response
 
@@ -132,7 +129,8 @@ let getMyFollowers(username: string) =
     let followSeq = seq { yield! followrs}
     let mutable followersList = []
     for i in followSeq do
-        let followr = (i.Field(followers.Columns.Item(2)))
+        printfn "~ %A" i
+        let followr = (i.Field(followers.Columns.Item(1)))
         followersList <- followersList @ [followr]
     followersList
 
@@ -160,7 +158,7 @@ let getMyMentions(username: string) =
         mentionerList <- mentionerList @ [mentioner]
         let mention = (i.Field(mentions.Columns.Item(2)))
         mentionList <- mentionList @ [mention]
-    List.zip mentionerList mentionerList
+    List.zip mentionerList mentionList
 
 let Server(mailbox: Actor<obj>) msg =
     let sender = mailbox.Sender()
