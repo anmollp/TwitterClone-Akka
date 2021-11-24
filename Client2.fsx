@@ -23,6 +23,7 @@ let configuration =
 
 let mutable ipAddress = ""
 let mutable clientId = ""
+let mutable username = ""
 
 match fsi.CommandLineArgs with 
     | [|_; ip; id|] -> 
@@ -55,7 +56,6 @@ let home : Home = {
 }
 
 let User(mailbox: Actor<obj>) msg =
-    let mutable username = ""
     match box msg with
     | :? Register as r ->
         printfn "Register with an username and password to continue on Chirp! ..."
@@ -84,8 +84,8 @@ let User(mailbox: Actor<obj>) msg =
             printfn "%s" i
         mailbox.Self <! home
     | :? NewTweet as n ->
-        printf "Here's a new tweet from @%s" n.username
-        printf "<%d> %s" n.messageId n.message
+        printfn "Here's a new tweet from @%s" n.username
+        printfn "<%d> %s" n.messageId n.message
         mailbox.Self <! home
     | :? Feed as f -> 
         let feed : Feed = {
