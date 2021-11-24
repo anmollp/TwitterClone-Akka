@@ -39,13 +39,15 @@ Press the corresponding number for action
 [3] Followers
 [4] Follow
 [5] Feed
-[6] Logout
+[6] Search a HashTag
+[7] Your Retweets
+[8] Logout
 "
 
 let logoutpage = "
 Welcome to Chirp! What would you like to do today?
 Press the corresponding number for action
-[7] Login
+[9] Login
 "
 
 let remoteSys = System.create "TwitterClient" configuration
@@ -79,9 +81,12 @@ let User(mailbox: Actor<obj>) msg =
         printfn "%s" f.response
         mailbox.Self <! home
     | :? MyFollowers as m ->
-        printfn "Your followers"
-        for i in m.followers do
-            printfn "%s" i
+        if m.followers.Length = 0 then
+            printfn "You dont have any followers..."
+        else
+            printfn "Your followers:"
+            for i in m.followers do
+                printfn "%s" i
         mailbox.Self <! home
     | :? NewTweet as n ->
         printfn "Here's a new tweet from @%s" n.username
@@ -101,6 +106,24 @@ let User(mailbox: Actor<obj>) msg =
         for i in m.mentions do
             let (mentioner, data) = i
             printfn "%s mentioned you in [%s]" mentioner data
+        mailbox.Self <! home
+    | :? HashTagSearchResponse as h ->
+        if h.tagTweets.Length = 0 then
+            printfn "No such hash tag"
+        else
+            printfn "Your search results:"
+            for i in h.tagTweets do
+                let (id, data) = i
+                printfn "<%d> %s" id data
+        mailbox.Self <! home
+    | :? RetweetsResponse as r ->
+        if r.retweets.Length = 0 then
+            printfn "You dont have any retweets..."
+        else
+            printfn "Your retweets:"
+            for i in r.retweets do
+                let (id, data) = i
+                printfn "<%d> %s" id data
         mailbox.Self <! home
     | :? Home as h ->
         printfn "%s" homepage 
@@ -152,7 +175,19 @@ let User(mailbox: Actor<obj>) msg =
                 username = userName
             }
             server.Tell(feed, mailbox.Self)
-        | 6 -> 
+        | 6 ->
+            printfn "Enter a search term preceeded by # ..."
+            let userInput = System.Console.ReadLine().Trim()
+            let searchTag: SearchTag = {
+                tag = userInput
+            }
+            server.Tell(searchTag, mailbox.Self)
+        | 7 ->
+            let myRetweets: ShowRetweets = {
+                username = userName
+            }
+            server.Tell(myRetweets, mailbox.Self)
+        | 8 -> 
             let logout : Logout = {
                 username = userName
                 message = "Logout"
@@ -164,7 +199,7 @@ let User(mailbox: Actor<obj>) msg =
         printfn "%s" logoutpage
         let userInput = int(System.Console.ReadLine().Trim())
         match userInput with
-        | 7 ->
+        | 9 ->
             let login : Login = {
                 username = userName
                 message = "Login"

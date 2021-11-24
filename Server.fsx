@@ -19,7 +19,8 @@ let configuration =
                 provider = ""Akka.Remote.RemoteActorRefProvider, Akka.Remote""
                 }
             remote.helios.tcp {
-                hostname = 10.20.215.4
+                // hostname = 10.20.215.4
+                hostname = 10.140.238.225
                 port = 2552
             }
         }"
@@ -129,7 +130,6 @@ let getMyFollowers(username: string) =
     let followSeq = seq { yield! followrs}
     let mutable followersList = []
     for i in followSeq do
-        printfn "~ %A" i
         let followr = (i.Field(followers.Columns.Item(1)))
         followersList <- followersList @ [followr]
     followersList
@@ -147,6 +147,32 @@ let getMyTweets(username: string) =
         tweetList <- tweetList @ [twit]
     List.zip tweetIdList tweetList
 
+let getRetweetsFromTweets(tweetIdList: list<int>) =
+    let s = String.Join(",", tweetIdList)
+    if tweetIdList.Length = 0 then
+        []
+    else
+        let expr = "TweetId IN ("+s+")"
+        let twits = (tweets.Select(expr))
+        let tweetSeq = seq { yield! twits}
+        let mutable tweetList = []
+        for i in tweetSeq do
+            let twit = (i.Field(tweets.Columns.Item(2)))
+            tweetList <- tweetList @ [twit] 
+        tweetList
+
+let getMyReTweets(username: string) =
+    let expr = "Username = '"+username+"'"
+    let retwits = (retweets.Select(expr))
+    let retweetSeq = seq { yield! retwits}
+    let mutable retweetList = []
+    let mutable retweetIdList = []
+    for i in retweetSeq do
+        let retwitId = (i.Field(retweets.Columns.Item(1)))
+        retweetIdList <- retweetIdList @ [retwitId]
+    retweetList <- getRetweetsFromTweets(retweetIdList)
+    List.zip retweetIdList retweetList
+
 let getMyMentions(username: string) =
     let expr = "Username = '"+username+"'"
     let ments = (mentions.Select(expr))
@@ -159,6 +185,19 @@ let getMyMentions(username: string) =
         let mention = (i.Field(mentions.Columns.Item(2)))
         mentionList <- mentionList @ [mention]
     List.zip mentionerList mentionList
+
+let searchHashTag(hashTag: string) =
+    let expr = "Tweet LIKE '*"+hashTag+"*'"
+    let hashTags = (tweets.Select(expr))
+    let hashTagsSeq = seq{ yield! hashTags}
+    let mutable searchList = []
+    let mutable searchIdList = []
+    for i in hashTagsSeq do
+        let tagId = (i.Field(tweets.Columns.Item(1)))
+        searchIdList <- searchIdList @ [tagId]
+        let tagTweet = (i.Field(tweets.Columns.Item(2)))
+        searchList <- searchList @ [tagTweet]
+    List.zip searchIdList searchList
 
 let Server(mailbox: Actor<obj>) msg =
     let sender = mailbox.Sender()
@@ -204,6 +243,16 @@ let Server(mailbox: Actor<obj>) msg =
             mentions = getMyMentions(f.username)
         }
         sender <! myFeed
+    | :? SearchTag as s ->
+        let searchResponse: HashTagSearchResponse = {
+            tagTweets = searchHashTag(s.tag)
+        }
+        sender <! searchResponse
+    | :? ShowRetweets as s ->
+        let retweets: RetweetsResponse = {
+            retweets = getMyReTweets(s.username)
+        }
+        sender <! retweets
     | _ -> printfn "Invalid response(Server)"
 
 let serverId = "server"

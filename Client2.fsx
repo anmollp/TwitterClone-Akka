@@ -23,7 +23,7 @@ let configuration =
 
 let mutable ipAddress = ""
 let mutable clientId = ""
-let mutable username = ""
+let mutable userName = ""
 
 match fsi.CommandLineArgs with 
     | [|_; ip; id|] -> 
@@ -39,13 +39,15 @@ Press the corresponding number for action
 [3] Followers
 [4] Follow
 [5] Feed
-[6] Logout
+[6] Search a HashTag
+[7] Retweets
+[8] Logout
 "
 
 let logoutpage = "
 Welcome to Chirp! What would you like to do today?
 Press the corresponding number for action
-[7] Login
+[9] Login
 "
 
 let remoteSys = System.create "TwitterClient" configuration
@@ -61,11 +63,11 @@ let User(mailbox: Actor<obj>) msg =
         printfn "Register with an username and password to continue on Chirp! ..."
         printf "Username: "
         let userInput = System.Console.ReadLine()
-        username <- userInput.Trim()
+        userName <- userInput.Trim()
         printf "Password: "
         let userpassword = System.Console.ReadLine().Trim()
         let request: RegisterRequest = {
-            username = username
+            username = userName
             password = userpassword
         }
         server.Tell(request, mailbox.Self)
@@ -79,9 +81,12 @@ let User(mailbox: Actor<obj>) msg =
         printfn "%s" f.response
         mailbox.Self <! home
     | :? MyFollowers as m ->
-        printfn "Your followers"
-        for i in m.followers do
-            printfn "%s" i
+        if m.followers.Length = 0 then
+            printfn "You dont have any followers..."
+        else
+            printfn "Your followers:"
+            for i in m.followers do
+                printfn "%s" i
         mailbox.Self <! home
     | :? NewTweet as n ->
         printfn "Here's a new tweet from @%s" n.username
@@ -89,7 +94,7 @@ let User(mailbox: Actor<obj>) msg =
         mailbox.Self <! home
     | :? Feed as f -> 
         let feed : Feed = {
-            username = username
+            username = userName
         }
         server.Tell(feed, mailbox.Self)
     | :? MyFeed as m ->
@@ -102,6 +107,24 @@ let User(mailbox: Actor<obj>) msg =
             let (mentioner, data) = i
             printfn "%s mentioned you in [%s]" mentioner data
         mailbox.Self <! home
+    | :? HashTagSearchResponse as h ->
+        if h.tagTweets.Length = 0 then
+            printfn "No such hash tag"
+        else
+            printfn "Your search results:"
+            for i in h.tagTweets do
+                let (id, data) = i
+                printfn "<%d> %s" id data
+        mailbox.Self <! home
+    | :? RetweetsResponse as r ->
+        if r.retweets.Length = 0 then
+            printfn "You dont have any retweets..."
+        else
+            printfn "Your retweets:"
+            for i in r.retweets do
+                let (id, data) = i
+                printfn "<%d> %s" id data
+        mailbox.Self <! home
     | :? Home as h ->
         printfn "%s" homepage 
         let userInput = System.Console.ReadLine()
@@ -111,7 +134,7 @@ let User(mailbox: Actor<obj>) msg =
             printfn "Tweet by typing, mentioning your friends with an @ ..."
             let userTweet = System.Console.ReadLine()
             let tweet: Tweet = {
-                username = username
+                username = userName
                 text = userTweet
             }
             server.Tell(tweet, mailbox.Self)
@@ -123,7 +146,7 @@ let User(mailbox: Actor<obj>) msg =
             try 
                 input <- int(userInput.Trim())
                 let retweet: ReTweet = {
-                    username = username
+                    username = userName
                     tweetId = input
                 }
                 server.Tell(retweet, mailbox.Self)
@@ -132,7 +155,7 @@ let User(mailbox: Actor<obj>) msg =
             mailbox.Self <! home
         | 3 -> 
             let followers: Followers = {
-                username = username
+                username = userName
             }
             server.Tell(followers, mailbox.Self)
         | 4 -> 
@@ -142,19 +165,31 @@ let User(mailbox: Actor<obj>) msg =
                 followee <- userInput.Trim()
                 let followReq: FollowRequest = {
                     followee = followee
-                    follower = username
+                    follower = userName
                 }
                 server.Tell(followReq, mailbox.Self)
             with ex ->
                     printfn "What did you say? %A" ex
         | 5 -> 
             let feed : Feed = {
-                username = username
+                username = userName
             }
             server.Tell(feed, mailbox.Self)
-        | 6 -> 
+        | 6 ->
+            printfn "Enter a search term preceeded by # ..."
+            let userInput = System.Console.ReadLine().Trim()
+            let searchTag: SearchTag = {
+                tag = userInput
+            }
+            server.Tell(searchTag, mailbox.Self)
+        | 7 ->
+            let myRetweets: ShowRetweets = {
+                username = userName
+            }
+            server.Tell(myRetweets, mailbox.Self)
+        | 8 -> 
             let logout : Logout = {
-                username = username
+                username = userName
                 message = "Logout"
             }
             server.Tell(logout, mailbox.Self)
@@ -164,9 +199,9 @@ let User(mailbox: Actor<obj>) msg =
         printfn "%s" logoutpage
         let userInput = int(System.Console.ReadLine().Trim())
         match userInput with
-        | 7 ->
+        | 9 ->
             let login : Login = {
-                username = username
+                username = userName
                 message = "Login"
             }
             server.Tell(login, mailbox.Self)

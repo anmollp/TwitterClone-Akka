@@ -76,3 +76,19 @@ type NewTweet = {
     messageId: int
     message: string
 }
+
+type SearchTag = {
+    tag: string
+}
+
+type HashTagSearchResponse = {
+    tagTweets: list<int * string>
+}
+
+type ShowRetweets = {
+    username: string
+}
+
+type RetweetsResponse = {
+    retweets: list<int * string>
+}
