@@ -92,6 +92,10 @@ let User(mailbox: Actor<obj>) msg =
         printfn "Here's a new tweet from @%s" n.username
         printfn "<%d> %s" n.messageId n.message
         mailbox.Self <! home
+    | :? NewReTweet as r ->
+        printfn "Here's a new retweet from @%s" r.username
+        printfn "<%d> %s" r.messageId r.message
+        mailbox.Self <! home
     | :? Feed as f -> 
         let feed : Feed = {
             username = userName
@@ -152,7 +156,6 @@ let User(mailbox: Actor<obj>) msg =
                 server.Tell(retweet, mailbox.Self)
             with ex ->
                     printfn "What did you say? %A" ex
-            mailbox.Self <! home
         | 3 -> 
             let followers: Followers = {
                 username = userName

@@ -40,7 +40,7 @@ Press the corresponding number for action
 [4] Follow
 [5] Feed
 [6] Search a HashTag
-[7] Retweets
+[7] Your Retweets
 [8] Logout
 "
 
@@ -91,6 +91,10 @@ let User(mailbox: Actor<obj>) msg =
     | :? NewTweet as n ->
         printfn "Here's a new tweet from @%s" n.username
         printfn "<%d> %s" n.messageId n.message
+        mailbox.Self <! home
+    | :? NewReTweet as r ->
+        printfn "Here's a new retweet from @%s" r.username
+        printfn "<%d> %s" r.messageId r.message
         mailbox.Self <! home
     | :? Feed as f -> 
         let feed : Feed = {
@@ -152,7 +156,6 @@ let User(mailbox: Actor<obj>) msg =
                 server.Tell(retweet, mailbox.Self)
             with ex ->
                     printfn "What did you say? %A" ex
-            mailbox.Self <! home
         | 3 -> 
             let followers: Followers = {
                 username = userName
