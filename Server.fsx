@@ -19,8 +19,8 @@ let configuration =
                 provider = ""Akka.Remote.RemoteActorRefProvider, Akka.Remote""
                 }
             remote.helios.tcp {
-                // hostname = 10.20.215.4
-                hostname = 10.140.238.225
+                hostname = 10.20.215.4
+                // hostname = 10.140.238.225
                 port = 2552
             }
         }"
@@ -112,7 +112,7 @@ let retweetIt(username: string, tweetId: int, retweetCount: int) =
     row.SetField("Username", username)
     try 
         retweets.Rows.Add(row)
-    with ex -> printfn "Could not register:  %A" ex
+    with ex -> printfn "Could not retweet:  %A" ex
 
 let follow(followee: string, follower: string) =
     let mutable response = String.Format("You started following {0}.", followee)
@@ -237,6 +237,15 @@ let Server(mailbox: Actor<obj>) msg =
     | :? ReTweet as r -> 
         retweetCount <- retweetCount + 1
         retweetIt(r.username, r.tweetId, retweetCount) |> ignore
+        let allMyFollowers = getMyFollowers(r.username)
+        let retwit = getRetweetsFromTweets([r.tweetId])
+        for eachFollower in allMyFollowers do
+            let newReTweet: NewReTweet = {
+                username = r.username
+                messageId = retweetCount
+                message = retwit.[0]
+            }
+            dictOfUsers.Item(eachFollower) <! newReTweet
     | :? Feed as f ->
         let myFeed: MyFeed = {
             tweets = getMyTweets(f.username)

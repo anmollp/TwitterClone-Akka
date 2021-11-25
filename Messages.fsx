@@ -92,3 +92,9 @@ type ShowRetweets = {
 type RetweetsResponse = {
     retweets: list<int * string>
 }
+
+type NewReTweet = {
+    username: string
+    messageId: int
+    message: string
+}
