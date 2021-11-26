@@ -3,6 +3,7 @@
 #r "nuget: FSharp.Json"
 
 #load "./Messages.fsx"
+#load "./Utilities.fsx"
 
 open System
 open System.Data
@@ -11,26 +12,8 @@ open Akka.Actor
 open System.Text.RegularExpressions
 open System.Collections.Generic
 open Messages
-
-let configuration =
-    Configuration.parse
-        @"akka {
-            actor {
-                provider = ""Akka.Remote.RemoteActorRefProvider, Akka.Remote""
-                }
-            remote.helios.tcp {
-                hostname = 10.20.215.4
-                // hostname = 10.140.238.225
-                port = 2552
-            }
-        }"
-
-let system = System.create "TwitterServer" configuration
-
-let dictOfUsers = new Dictionary<string, IActorRef>()
-let statusOfUsers = new Dictionary<string, Boolean>()
-let mutable tweetCount = 0
-let mutable retweetCount = 0
+open Utilities
+open FSharp.Json
 
 let loginResponse: LoginResponse = {
     message = "You've successfully logged in!"
@@ -84,7 +67,26 @@ let registerUser(username: string, password: string) =
         users.Rows.Add(row)
     with ex -> response <- "Could not register: " + string(ex)
     response
-    
+
+let getRandomUser() =
+    let expr = ""
+    let usrs = (users.Select(expr))
+    let userSeq = seq { yield! usrs}
+    let mutable usersList = []
+    for i in userSeq do
+        let user = (i.Field(users.Columns.Item(1)))
+        usersList <- usersList @ [user]
+    getRandomElement(usersList)
+
+let getRandomTweetId() =
+    let expr = ""
+    let twits = (tweets.Select(expr))
+    let twitSeq = seq { yield! twits}
+    let mutable tweetList = []
+    for i in twitSeq do
+        let twitId = (i.Field(tweets.Columns.Item(1)))
+        tweetList <- tweetList @ [twitId]
+    getRandomIntegerElement(tweetList)
 
 let tweetIt(username: string, tweetCount: int, tweet: string) = 
     let row = tweets.NewRow()
@@ -199,74 +201,121 @@ let searchHashTag(hashTag: string) =
         searchList <- searchList @ [tagTweet]
     List.zip searchIdList searchList
 
-let Server(mailbox: Actor<obj>) msg =
-    let sender = mailbox.Sender()
-    match box msg with 
-    | :? RegisterRequest as r ->
-        let response: RegisterationResponse = {response = registerUser(r.username, r.password)} 
-        dictOfUsers.Add(r.username, sender)
-        statusOfUsers.Add(r.username, true)
-        sender <! response
-    | :? Login as  l ->
-        statusOfUsers.[l.username] <- true
-        sender <! loginResponse
-    | :? Logout as l ->
-        statusOfUsers.[l.username] <- false
-        sender <! logoutResponse
-    | :? Followers as f ->
-        let followers: MyFollowers = {
-            followers = getMyFollowers(f.username)
-        }
-        sender <! followers
-    | :? FollowRequest as f ->
-        let followRes: FollowResponse = {
-            response = follow(f.followee, f.follower)
-        }
-        sender <! followRes
-    | :? Tweet as t -> 
-        tweetCount <- tweetCount + 1
-        tweetIt(t.username, tweetCount, t.text)
-        let allMyFollowers = getMyFollowers(t.username)
-        for eachFollower in allMyFollowers do
-            let newTweet: NewTweet = {
-                username = t.username
-                messageId = tweetCount
-                message = t.text
+let Server (mailbox: Actor<_>) =
+    let mutable tweetCount = 0
+    let mutable retweetCount = 0
+    let dictOfUsers = new Dictionary<string, IActorRef>()
+    let statusOfUsers = new Dictionary<string, Boolean>()
+    let rec loop () = 
+        actor {
+        let! json = mailbox.Receive()
+        let x = Json.deserialize<Dto> json
+        let msg = x.message
+        match msg with 
+        | "RegisterRequest" as r ->
+            let dto: Dto = {
+                    message = "RegisterationResponse"
+                    username = ""
+                    password = ""
+                    response = registerUser(x.username, x.password)
+                    followers = []
+                    tweetId = -1
+                    tweet = ""
+                    tweets = [(-1,"")]
+                    mentions = [("","")]
+                    retweets = [(-1,"")]
+                    tagTweets = [(-1,"")]
+                    logoutMessage = ""
+                    followee = ""
+                    follower = ""
+                    tag = ""
+                }
+            dictOfUsers.Add(x.username, mailbox.Sender())
+            statusOfUsers.Add(x.username, true)
+            mailbox.Sender() <! Json.serialize dto
+        | "Login" as  l ->
+            statusOfUsers.[x.username] <- true
+            mailbox.Sender() <! loginResponse
+        | "Logout" as l ->
+            statusOfUsers.[x.username] <- false
+            mailbox.Sender() <! logoutResponse
+        | "Followers" as f ->
+            let followers: MyFollowers = {
+                followers = getMyFollowers(x.username)
             }
-            dictOfUsers.Item(eachFollower) <! newTweet
-    | :? ReTweet as r -> 
-        retweetCount <- retweetCount + 1
-        retweetIt(r.username, r.tweetId, retweetCount) |> ignore
-        let allMyFollowers = getMyFollowers(r.username)
-        let retwit = getRetweetsFromTweets([r.tweetId])
-        for eachFollower in allMyFollowers do
-            let newReTweet: NewReTweet = {
-                username = r.username
-                messageId = retweetCount
-                message = retwit.[0]
+            mailbox.Sender() <! followers
+        | "FollowRequest" as f ->
+            let followRes: FollowResponse = {
+                response = follow(x.followee, x.follower)
             }
-            dictOfUsers.Item(eachFollower) <! newReTweet
-    | :? Feed as f ->
-        let myFeed: MyFeed = {
-            tweets = getMyTweets(f.username)
-            mentions = getMyMentions(f.username)
-        }
-        sender <! myFeed
-    | :? SearchTag as s ->
-        let searchResponse: HashTagSearchResponse = {
-            tagTweets = searchHashTag(s.tag)
-        }
-        sender <! searchResponse
-    | :? ShowRetweets as s ->
-        let retweets: RetweetsResponse = {
-            retweets = getMyReTweets(s.username)
-        }
-        sender <! retweets
-    | _ -> printfn "Invalid response(Server)"
+            mailbox.Sender() <! followRes
+        | "Tweet" as t -> 
+            tweetCount <- tweetCount + 1
+            tweetIt(x.username, tweetCount, x.tweet)
+            let allMyFollowers = getMyFollowers(x.username)
+            for eachFollower in allMyFollowers do
+                let newTweet: NewTweet = {
+                    username = x.username
+                    messageId = tweetCount
+                    message = x.tweet
+                }
+                dictOfUsers.Item(eachFollower) <! newTweet
+        | "ReTweet" as r -> 
+            retweetCount <- retweetCount + 1
+            retweetIt(x.username, x.tweetId, retweetCount) |> ignore
+            let allMyFollowers = getMyFollowers(x.username)
+            let retwit = getRetweetsFromTweets([x.tweetId])
+            for eachFollower in allMyFollowers do
+                let newReTweet: NewReTweet = {
+                    username = x.username
+                    messageId = retweetCount
+                    message = retwit.[0]
+                }
+                dictOfUsers.Item(eachFollower) <! newReTweet
+        | "Feed" as f ->
+            let myFeed: MyFeed = {
+                tweets = getMyTweets(x.username)
+                mentions = getMyMentions(x.username)
+            }
+            mailbox.Sender() <! myFeed
+        | "SearchTag" as s ->
+            let searchResponse: HashTagSearchResponse = {
+                tagTweets = searchHashTag(x.tag)
+            }
+            mailbox.Sender() <! searchResponse
+        | "ShowRetweets" as s ->
+            let retweets: RetweetsResponse = {
+                retweets = getMyReTweets(x.username)
+            }
+            mailbox.Sender() <! retweets
+        | _ -> printfn "Invalid response(Server)"
 
-let serverId = "server"
-let _ = spawn system serverId (actorOf2(Server))
-system.WhenTerminated.Wait()
+        return! loop ()
+        }
+    loop ()
+
+let main() =
+    let configuration =
+        Configuration.parse
+            @"akka {
+                actor {
+                    provider = ""Akka.Remote.RemoteActorRefProvider, Akka.Remote""
+                    }
+                remote.helios.tcp {
+                    hostname = 10.20.215.4
+                    // hostname = 10.140.238.225
+                    port = 2552
+                }
+            }"
+    let system = System.create "TwitterServer" configuration
+    printfn "Entering"
+    let serverId = "server"
+    let _ = spawn system serverId (Server)
+    system.WhenTerminated.Wait()
+
+if fsi.CommandLineArgs = [| __SOURCE_FILE__ |] then
+    printfn "Called"
+    main()
 
 
 

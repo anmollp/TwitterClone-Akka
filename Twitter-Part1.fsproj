@@ -7,6 +7,8 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Messages.fsx" />
+    <Compile Include="RandTweets.fsx" />
+    <Compile Include="Utilities.fsx" />
     <Compile Include="Server.fsx" />
     <Compile Include="Client.fsx" />
     <Compile Include="Client2.fsx" />
