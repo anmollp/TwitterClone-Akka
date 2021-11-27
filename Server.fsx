@@ -235,59 +235,186 @@ let Server (mailbox: Actor<_>) =
             mailbox.Sender() <! Json.serialize dto
         | "Login" as  l ->
             statusOfUsers.[x.username] <- true
-            mailbox.Sender() <! loginResponse
+            let dto: Dto = {
+                    message = "LoginResponse"
+                    username = ""
+                    password = ""
+                    response = "You've successfully logged in!"
+                    followers = []
+                    tweetId = -1
+                    tweet = ""
+                    tweets = [(-1,"")]
+                    mentions = [("","")]
+                    retweets = [(-1,"")]
+                    tagTweets = [(-1,"")]
+                    logoutMessage = ""
+                    followee = ""
+                    follower = ""
+                    tag = ""
+                }
+            mailbox.Sender() <! Json.serialize dto
         | "Logout" as l ->
             statusOfUsers.[x.username] <- false
-            mailbox.Sender() <! logoutResponse
+            let dto: Dto = {
+                    message = "LogoutResponse"
+                    username = ""
+                    password = ""
+                    response = "You've successfully logged out!"
+                    followers = []
+                    tweetId = -1
+                    tweet = ""
+                    tweets = [(-1,"")]
+                    mentions = [("","")]
+                    retweets = [(-1,"")]
+                    tagTweets = [(-1,"")]
+                    logoutMessage = ""
+                    followee = ""
+                    follower = ""
+                    tag = ""
+                }
+            mailbox.Sender() <! Json.serialize dto
         | "Followers" as f ->
-            let followers: MyFollowers = {
-                followers = getMyFollowers(x.username)
-            }
-            mailbox.Sender() <! followers
+            let dto: Dto = {
+                    message = "MyFollowers"
+                    username = ""
+                    password = ""
+                    response = ""
+                    followers = getMyFollowers(x.username)
+                    tweetId = -1
+                    tweet = ""
+                    tweets = [(-1,"")]
+                    mentions = [("","")]
+                    retweets = [(-1,"")]
+                    tagTweets = [(-1,"")]
+                    logoutMessage = ""
+                    followee = ""
+                    follower = ""
+                    tag = ""
+                }
+            mailbox.Sender() <! Json.serialize dto
         | "FollowRequest" as f ->
-            let followRes: FollowResponse = {
-                response = follow(x.followee, x.follower)
-            }
-            mailbox.Sender() <! followRes
+            let dto: Dto = {
+                    message = "FollowResponse"
+                    username = ""
+                    password = ""
+                    response = follow(x.followee, x.follower)
+                    followers = []
+                    tweetId = -1
+                    tweet = ""
+                    tweets = [(-1,"")]
+                    mentions = [("","")]
+                    retweets = [(-1,"")]
+                    tagTweets = [(-1,"")]
+                    logoutMessage = ""
+                    followee = ""
+                    follower = ""
+                    tag = ""
+                }
+            mailbox.Sender() <! Json.serialize dto
         | "Tweet" as t -> 
             tweetCount <- tweetCount + 1
             tweetIt(x.username, tweetCount, x.tweet)
             let allMyFollowers = getMyFollowers(x.username)
             for eachFollower in allMyFollowers do
-                let newTweet: NewTweet = {
-                    username = x.username
-                    messageId = tweetCount
-                    message = x.tweet
-                }
-                dictOfUsers.Item(eachFollower) <! newTweet
+                let dto: Dto = {
+                        message = "NewTweet"
+                        username = x.username
+                        password = ""
+                        response = ""
+                        followers = []
+                        tweetId = tweetCount
+                        tweet = x.tweet
+                        tweets = [(-1,"")]
+                        mentions = [("","")]
+                        retweets = [(-1,"")]
+                        tagTweets = [(-1,"")]
+                        logoutMessage = ""
+                        followee = ""
+                        follower = ""
+                        tag = ""
+                    }
+                dictOfUsers.Item(eachFollower) <! Json.serialize dto
         | "ReTweet" as r -> 
             retweetCount <- retweetCount + 1
             retweetIt(x.username, x.tweetId, retweetCount) |> ignore
             let allMyFollowers = getMyFollowers(x.username)
             let retwit = getRetweetsFromTweets([x.tweetId])
             for eachFollower in allMyFollowers do
-                let newReTweet: NewReTweet = {
-                    username = x.username
-                    messageId = retweetCount
-                    message = retwit.[0]
-                }
-                dictOfUsers.Item(eachFollower) <! newReTweet
+                let dto: Dto = {
+                        message = "NewReTweet"
+                        username = x.username
+                        password = ""
+                        response = ""
+                        followers = []
+                        tweetId = retweetCount
+                        tweet = retwit.[0]
+                        tweets = [(-1,"")]
+                        mentions = [("","")]
+                        retweets = [(-1,"")]
+                        tagTweets = [(-1,"")]
+                        logoutMessage = ""
+                        followee = ""
+                        follower = ""
+                        tag = ""
+                    }
+                dictOfUsers.Item(eachFollower) <! Json.serialize dto
         | "Feed" as f ->
-            let myFeed: MyFeed = {
-                tweets = getMyTweets(x.username)
-                mentions = getMyMentions(x.username)
-            }
-            mailbox.Sender() <! myFeed
+            let dto: Dto = {
+                    message = "MyFeed"
+                    username = x.username
+                    password = ""
+                    response = ""
+                    followers = []
+                    tweetId = -1
+                    tweet = ""
+                    tweets = getMyTweets(x.username)
+                    mentions = getMyMentions(x.username)
+                    retweets = [(-1,"")]
+                    tagTweets = [(-1,"")]
+                    logoutMessage = ""
+                    followee = ""
+                    follower = ""
+                    tag = ""
+                    }
+            mailbox.Sender() <! Json.serialize dto
         | "SearchTag" as s ->
-            let searchResponse: HashTagSearchResponse = {
-                tagTweets = searchHashTag(x.tag)
-            }
-            mailbox.Sender() <! searchResponse
+            let dto: Dto = {
+                    message = "HashTagSearchResponse"
+                    username = ""
+                    password = ""
+                    response = ""
+                    followers = []
+                    tweetId = -1
+                    tweet = ""
+                    tweets = []
+                    mentions = []
+                    retweets = [(-1,"")]
+                    tagTweets = searchHashTag(x.tag)
+                    logoutMessage = ""
+                    followee = ""
+                    follower = ""
+                    tag = ""
+                    }
+            mailbox.Sender() <! Json.serialize dto
         | "ShowRetweets" as s ->
-            let retweets: RetweetsResponse = {
-                retweets = getMyReTweets(x.username)
-            }
-            mailbox.Sender() <! retweets
+            let dto: Dto = {
+                    message = "RetweetsResponse"
+                    username = ""
+                    password = ""
+                    response = ""
+                    followers = []
+                    tweetId = -1
+                    tweet = ""
+                    tweets = []
+                    mentions = []
+                    retweets = getMyReTweets(x.username)
+                    tagTweets = [(-1,"")]
+                    logoutMessage = ""
+                    followee = ""
+                    follower = ""
+                    tag = ""
+                    }
+            mailbox.Sender() <! Json.serialize dto
         | _ -> printfn "Invalid response(Server)"
 
         return! loop ()
