@@ -29,8 +29,8 @@ let getRandomIntegerElement(arr: list<int>) =
 
 let shouldMention() =
     let rnd = Random();
-    let flip = rnd.Next 1
-    if flip=1 then
+    let flip = rnd.Next 2
+    if flip >= 1 then
         true
     else
         false
