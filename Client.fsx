@@ -11,9 +11,8 @@ open Akka.FSharp
 open Akka.Actor
 open Messages
 open RandTweets
-open Utilities
-open System
 open System.Collections.Generic
+open Utilities
 open FSharp.Json
 
 let configuration =
@@ -32,18 +31,24 @@ let configuration =
 let mutable ipAddress = ""
 let mutable clientId = ""
 let mutable numNodes = 0
-let mutable numMessages = 0
+let mutable distributionType = "Randomized"
+let mutable numSeconds = 0
 let mutable messageExchanges = 0
 let mutable registeredUsers = 0
 let actorList =  List<IActorRef>()
 let mutable supervisor: IActorRef = null
 let mutable randomUsers = []
+let mutable stoppedUsers = 0
+let watch = System.Diagnostics.Stopwatch()
+let mutable myTweetsDictionary = Dictionary<string,list<int>>()
+let mutable myReTweetsDictionary = Dictionary<string,list<int>>()
 
 match fsi.CommandLineArgs with 
-    | [|_; ip; nodes; messages|] -> 
+    | [|_; ip; nodes; seconds; distribution|] -> 
         ipAddress <- ip
         numNodes <- int(nodes)
-        numMessages <- int(messages)
+        numSeconds <- int(seconds)
+        distributionType <- if distribution = "Zipf" then distribution else distributionType
     | _ -> printfn "Error: Invalid Arguments."
 
 let homepage = "
@@ -86,24 +91,6 @@ let home : Dto = {
         tag = ""
     }
 
-let stopDto: Dto = {
-            message = "STOP"
-            username = ""
-            password = ""
-            response = ""
-            followers = []
-            tweetId = -1
-            tweet = ""
-            tweets = [(-1,"")]
-            mentions = [("","")]
-            retweets = [(-1,"")]
-            tagTweets = [(-1,"")]
-            logoutMessage = ""
-            followee = ""
-            follower = ""
-            tag = ""
-        }
-
 let simulateDto: Dto = {
     message = "Simulate"
     username = ""
@@ -123,8 +110,10 @@ let simulateDto: Dto = {
 }
 
 let getRandomUser() =
-    let rnd = Random();
-    randomUsers |> Seq.item (rnd.Next randomUsers.Length)
+    let rnd = System.Random();
+    match randomUsers.Length with
+    | 0 -> ""
+    | _ -> randomUsers |> Seq.item (rnd.Next randomUsers.Length)
 
 
 let User(userName: string)(mailbox: Actor<_>) =
@@ -135,7 +124,7 @@ let User(userName: string)(mailbox: Actor<_>) =
             let msg = x.message
             match msg with
             | "Register" as r ->
-                printfn "Register with an username and password to continue on Chirp! ..."
+                printfn "%s Register with an username and password to continue on Chirp! ..." userName
                 printf "Username: /"
                 printf "Password: "
                 let userpassword = ranStr 10
@@ -157,25 +146,7 @@ let User(userName: string)(mailbox: Actor<_>) =
                     tag = ""
                 }
                 server.Tell(Json.serialize dto, mailbox.Self)
-            | "RegisterationResponse" as r ->
-                let registeredDto: Dto = {
-                        message = "Registered"
-                        username = ""
-                        password = ""
-                        response = ""
-                        followers = []
-                        tweetId = -1
-                        tweet = ""
-                        tweets = [(-1,"")]
-                        mentions = [("","")]
-                        retweets = [(-1,"")]
-                        tagTweets = [(-1,"")]
-                        logoutMessage = ""
-                        followee = ""
-                        follower = ""
-                        tag = ""
-                    }
-                supervisor <! Json.serialize registeredDto
+            | "RegisterationResponse" ->
                 printfn "%s" x.response
             | "LoginResponse" as l ->
                 printfn "%s" x.response
@@ -191,13 +162,15 @@ let User(userName: string)(mailbox: Actor<_>) =
                     for i in x.followers do
                         printfn "%s" i
                 mailbox.Self <! Json.serialize home
-            | "NewTweet" as n ->
+            | "NewTweet"->
                 printfn "Here's a new tweet from @%s" x.username
                 printfn "<%d> %s" x.tweetId x.tweet
+                myTweetsDictionary.[userName] <- myTweetsDictionary.[userName] @ [x.tweetId]
                 mailbox.Self <! Json.serialize home
             | "NewReTweet" as r ->
                 printfn "Here's a new retweet from @%s" x.username
                 printfn "<%d> %s" x.tweetId x.tweet
+                myReTweetsDictionary.[userName] <- myReTweetsDictionary.[userName] @ [x.tweetId]
                 mailbox.Self <! Json.serialize home
             | "MyFeed" as m ->
                 printfn "Your recent tweets"
@@ -227,20 +200,38 @@ let User(userName: string)(mailbox: Actor<_>) =
                         let (id, data) = i
                         printfn "<%d> %s" id data
                 mailbox.Self <! Json.serialize home
-            | "STOP" as s ->
+            | "STOP" ->
+                stoppedUsers <- stoppedUsers + 1
+                if stoppedUsers = numNodes then
+                    let dto: Dto = {
+                            message = "MyStats"
+                            username = ""
+                            password = ""
+                            response = ""
+                            followers = []
+                            tweetId = -1
+                            tweet = ""
+                            tweets = [(-1,"")]
+                            mentions = [("","")]
+                            retweets = [(-1,"")]
+                            tagTweets = [(-1,"")]
+                            logoutMessage = ""
+                            followee = ""
+                            follower = ""
+                            tag = ""
+                        }
+                    supervisor.Tell(Json.serialize dto, mailbox.Self)
                 mailbox.Self <! PoisonPill.Instance
             | "Home" as h ->
                 printfn "%s" homepage
-                if messageExchanges = numMessages then
-                    printfn "*********Sending STOP*************"
-                    mailbox.Self <! Json.serialize stopDto
-                else
-                    let userInput = getRandomNum(1, 8)
-                    printfn "%s Pressed ******************* [%d] ********************" userName userInput 
-                    match userInput with
+                messageExchanges <- messageExchanges + 1
+                let userInput = getRandomNum(1, 8)
+                match userInput with
                     | 1 -> 
+                        if watch.ElapsedMilliseconds > int64(1000*numSeconds) then
+                            mailbox.Self <! PoisonPill.Instance
+                            printfn "Simulation ending...."
                         printfn "Tweet by typing, mentioning your friends with an @ ..."
-                        messageExchanges <- messageExchanges + 1
                         let mutable userTweet = getRandomElement(randTweets)
                         if shouldMention() then
                             userTweet <- "@"+getRandomUser()+" "+ userTweet 
@@ -260,12 +251,12 @@ let User(userName: string)(mailbox: Actor<_>) =
                                 followee = ""
                                 follower = ""
                                 tag = ""
-                        }
+                            }
                         server.Tell(Json.serialize dto, mailbox.Self)
                         mailbox.Self <! Json.serialize home
                     | 2 ->
                         printfn "Like that tweet? Retweet with the tweet id ..."
-                        let input = getRandomNum(1, messageExchanges-1)
+                        let input = getRandomIntegerElement(myTweetsDictionary.[userName])
                         if input <> -1 then
                             let dto: Dto = {
                                 message = "ReTweet"
@@ -285,8 +276,7 @@ let User(userName: string)(mailbox: Actor<_>) =
                                 tag = ""
                             }
                             server.Tell(Json.serialize dto, mailbox.Self)
-                        else
-                            mailbox.Self <! Json.serialize home
+                        mailbox.Self <! Json.serialize home
                     | 3 -> 
                         let dto: Dto = {
                                 message = "Followers"
@@ -307,28 +297,27 @@ let User(userName: string)(mailbox: Actor<_>) =
                             }
                         server.Tell(Json.serialize dto, mailbox.Self)
                     | 4 -> 
-                        // let followee = getRandomUser()
-                        // if followee <> userName && followee <> "" then
-                        //     let dto: Dto = {
-                        //         message = "FollowRequest"
-                        //         username = ""
-                        //         password = ""
-                        //         response = ""
-                        //         followers = []
-                        //         tweetId = -1
-                        //         tweet = ""
-                        //         tweets = [(-1,"")]
-                        //         mentions = [("","")]
-                        //         retweets = [(-1,"")]
-                        //         tagTweets = [(-1,"")]
-                        //         logoutMessage = ""
-                        //         followee = followee
-                        //         follower = userName
-                        //         tag = ""
-                        //     }
-                        //     server.Tell(Json.serialize dto, mailbox.Self)
-                        // else
-                        //     mailbox.Self <! Json.serialize home
+                        if distributionType <> "Zipf" then
+                            let followee = "user-"+string(getRandomNum(1, actorList.Count))
+                            if followee <> userName && followee <> "" then
+                                let dto: Dto = {
+                                    message = "FollowRequest"
+                                    username = userName
+                                    password = ""
+                                    response = ""
+                                    followers = []
+                                    tweetId = -1
+                                    tweet = ""
+                                    tweets = [(-1,"")]
+                                    mentions = [("","")]
+                                    retweets = [(-1,"")]
+                                    tagTweets = [(-1,"")]
+                                    logoutMessage = ""
+                                    followee = followee
+                                    follower = userName
+                                    tag = ""
+                                }
+                                server.Tell(Json.serialize dto, mailbox.Self)
                         mailbox.Self <! Json.serialize home
                     | 5 -> 
                         let dto: Dto = {
@@ -479,6 +468,8 @@ let register() =
             follower = ""
             tag = ""
         }
+        myReTweetsDictionary.Add(clientId, [])
+        myTweetsDictionary.Add(clientId, [])
         client <! Json.serialize registerDto
 
 let goHome() =  
@@ -492,10 +483,48 @@ let Supervisor(mailbox: Actor<_>) =
             let x = Json.deserialize<Dto> json
             let msg = x.message
             match msg with
-            | "Register" -> register()
-            | "ZipfDistribution" ->
+            | "Register" -> 
+                register()
+                let registeredDto: Dto = {
+                        message = "Registered"
+                        username = ""
+                        password = ""
+                        response = ""
+                        followers = []
+                        tweetId = -1
+                        tweet = ""
+                        tweets = [(-1,"")]
+                        mentions = [("","")]
+                        retweets = [(-1,"")]
+                        tagTweets = [(-1,"")]
+                        logoutMessage = ""
+                        followee = ""
+                        follower = ""
+                        tag = ""
+                    }
+                System.Threading.Thread.Sleep(2000)
+                mailbox.Self <! Json.serialize registeredDto
+            | "Registered" ->
+                let distDto: Dto = {
+                    message = distributionType
+                    username = ""
+                    password = ""
+                    response = ""
+                    followers = []
+                    tweetId = -1
+                    tweet = ""
+                    tweets = [(-1,"")]
+                    mentions = [("","")]
+                    retweets = [(-1,"")]
+                    tagTweets = [(-1,"")]
+                    logoutMessage = ""
+                    followee = ""
+                    follower = ""
+                    tag = ""
+                }
+                mailbox.Self <! Json.serialize distDto
+            | "Zipf" ->
                 let zipfNumerator = actorList.Count
-                printfn "%d" zipfNumerator
                 for i in 1 .. actorList.Count do
                     let username = "user-" + string(i)
                     let zipFNum = float(zipfNumerator)/(float(i)+1.0)
@@ -505,7 +534,7 @@ let Supervisor(mailbox: Actor<_>) =
                         password = ""
                         response = ""
                         followers = []
-                        tweetId = int(Math.Ceiling(zipFNum))
+                        tweetId = int(System.Math.Ceiling(zipFNum))
                         tweet = ""
                         tweets = [(-1,"")]
                         mentions = [("","")]
@@ -517,10 +546,14 @@ let Supervisor(mailbox: Actor<_>) =
                         tag = ""
                     }
                     server.Tell(Json.serialize randomUsersDto, supervisor)
+                System.Threading.Thread.Sleep(1000)
                 mailbox.Self <! Json.serialize simulateDto
-            | "Simulate" -> goHome()
+            | "Randomized" ->
+                mailbox.Self <! Json.serialize simulateDto
+            | "Simulate" -> 
+                watch.Start()
+                goHome()
             | "RandomUsersResponse" ->
-                printfn "%A" x.followers
                 if x.followers.Length > randomUsers.Length then
                     randomUsers <- x.followers
                 for j in 0 .. x.followers.Length-1 do
@@ -541,34 +574,34 @@ let Supervisor(mailbox: Actor<_>) =
                         follower = x.followers.[j]
                         tag = ""
                     }
-                    server.Tell(Json.serialize followDto, actorList.[j+1])
-            | "Registered" ->
-                registeredUsers <- registeredUsers + 1
-                if registeredUsers = numNodes then
-                    let zipf: Dto = {
-                        message = "ZipfDistribution"
-                        username = ""
-                        password = ""
-                        response = ""
-                        followers = []
-                        tweetId = -1
-                        tweet = ""
-                        tweets = [(-1,"")]
-                        mentions = [("","")]
-                        retweets = [(-1,"")]
-                        tagTweets = [(-1,"")]
-                        logoutMessage = ""
-                        followee = ""
-                        follower = ""
-                        tag = ""
-                    }
-                    mailbox.Self <! Json.serialize zipf
+                    server.Tell(Json.serialize followDto, actorList.[j])
+            | "MyStats" ->
+                printfn "Asking Stats"
+                let dto: Dto = {
+                    message = "MyStats"
+                    username = ""
+                    password = ""
+                    response = ""
+                    followers = []
+                    tweetId = -1
+                    tweet = ""
+                    tweets = [(-1,"")]
+                    mentions = [("","")]
+                    retweets = [(-1,"")]
+                    tagTweets = [(-1,"")]
+                    logoutMessage = ""
+                    followee = ""
+                    follower = ""
+                    tag = ""
+                }
+                server.Tell(Json.serialize dto, mailbox.Self)
             | _ -> printfn "Invalid Response(supervisor)"
             return! loop()
         }
     loop()
 
 supervisor <- spawn remoteSys "supervisor" (Supervisor)
+
 let registerDto: Dto = {
             message = "Register"
             username = ""
@@ -586,6 +619,33 @@ let registerDto: Dto = {
             follower = ""
             tag = ""
         }
+
 supervisor <! Json.serialize registerDto
+
+let statsDto: Dto = {
+    message = "MyStats"
+    username = ""
+    password = ""
+    response = ""
+    followers = []
+    tweetId = -1
+    tweet = ""
+    tweets = [(-1,"")]
+    mentions = [("","")]
+    retweets = [(-1,"")]
+    tagTweets = [(-1,"")]
+    logoutMessage = ""
+    followee = ""
+    follower = ""
+    tag = ""
+}
+
+let mutable Break = false
+
+while not Break do
+    if watch.ElapsedMilliseconds > int64(1000*numSeconds + 5000) then
+        supervisor <! Json.serialize statsDto
+        Break <- true
+        watch.Stop()
 
 remoteSys.WhenTerminated.Wait()

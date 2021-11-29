@@ -15,6 +15,12 @@ open Messages
 open Utilities
 open FSharp.Json
 
+let mutable tweetCount = 0
+let mutable retweetCount = 0
+let dictOfUsers = new Dictionary<string, IActorRef>()
+let statusOfUsers = new Dictionary<string, Boolean>()
+let statsDictionary = Dictionary<string, int>()
+
 let (|Regex|_|) pattern input =
     let m = Regex.Match(input, pattern) in
     if m.Success then Some (List.tail [ for g in m.Groups -> g.Value ]) else None
@@ -76,9 +82,17 @@ let getNRandomUsers(username: string, n: int) =
     let userSeq = seq { yield! usrs}
     let mutable usersList = []
     for i in userSeq do
-        let user = (i.Field(users.Columns.Item(0)))
+        let user = string(i.Field(users.Columns.Item(0)))
         usersList <- usersList @ [user]
-    usersList.[0 .. n-1]
+    let mutable set = Set.empty
+    while set.Count <> n do
+        set <- set.Add(getRandomNum(0, n))
+    let mutable nRandomUsers = []
+    for element in set do
+        try
+            nRandomUsers <- nRandomUsers @ [usersList.Item(element)]
+        with ex -> printfn "Exception: %A" ex
+    nRandomUsers
 
 let getRandomTweetId() =
     let expr = ""
@@ -125,7 +139,7 @@ let follow(followee: string, follower: string) =
     row.SetField("Follower", follower)
     try 
         followers.Rows.Add(row)
-    with ex -> response <- "Could not follow: " + string(ex)
+    with ex -> response <- String.Format("You can only follow @{0} once.", followee)
     response
 
 let getMyFollowers(username: string) =
@@ -149,7 +163,6 @@ let getMyTweets(username: string) =
         tweetIdList <- tweetIdList @ [twitId]
         let twit = (i.Field(tweets.Columns.Item(2)))
         tweetList <- tweetList @ [twit]
-    // printfn "Tweet - %d %d" tweetIdList.Length tweetList.Length
     List.zip tweetIdList tweetList
 
 let getTweetsForReTweets(tweetIdList: list<int>) =
@@ -204,14 +217,37 @@ let searchHashTag(hashTag: string) =
         searchIdList <- searchIdList @ [tagId]
         let tagTweet = (i.Field(tweets.Columns.Item(2)))
         searchList <- searchList @ [tagTweet]
-    // printfn "SearchTag - %d %d" searchIdList.Length searchList.Length
     List.zip searchIdList searchList
 
+let getMyStats(username: string) = 
+    let mutable expr = "Username = '"+username+"'"
+    let mutable activityMetric = 0
+    let twits = (tweets.Select(expr))
+    let twitSeq = seq { yield! twits}
+    let mutable twitIdList = []
+    for i in twitSeq do
+        let twit = (i.Field(tweets.Columns.Item(1)))
+        twitIdList <- twitIdList @ [string(twit)]
+    if twitIdList.Length > 0 then
+        let s = String.Join(",", twitIdList)
+        expr <- "TweetId IN ("+s+") and Username <> '"+username+"'"
+        let retwits = (retweets.Select(expr))
+        activityMetric <- activityMetric + retwits.Length
+    expr <- "Username ='"+username+"'"
+    let myretwits = (retweets.Select(expr))
+    let myretwitSeq = seq { yield! myretwits}
+    let mutable myretwitIdList = []
+    for i in myretwitSeq do
+        let myretwit = (i.Field(retweets.Columns.Item(1)))
+        myretwitIdList <- myretwitIdList @ [string(myretwit)]
+    if myretwitIdList.Length > 0 then
+        let t = String.Join(",", myretwitIdList)
+        expr <- "TweetId IN ("+t+") and Username <> '"+username+"'"
+        let retwits = (retweets.Select(expr))
+        activityMetric <- activityMetric + retwits.Length
+    activityMetric   
+
 let Server (mailbox: Actor<_>) =
-    let mutable tweetCount = 0
-    let mutable retweetCount = 0
-    let dictOfUsers = new Dictionary<string, IActorRef>()
-    let statusOfUsers = new Dictionary<string, Boolean>()
     let rec loop () = 
         actor {
         let! json = mailbox.Receive()
@@ -221,7 +257,7 @@ let Server (mailbox: Actor<_>) =
         | "RegisterRequest" as r ->
             let dto: Dto = {
                     message = "RegisterationResponse"
-                    username = ""
+                    username = x.username
                     password = ""
                     response = registerUser(x.username, x.password)
                     followers = []
@@ -299,7 +335,6 @@ let Server (mailbox: Actor<_>) =
                 }
             mailbox.Sender() <! Json.serialize dto
         | "FollowRequest" as f ->
-            printfn "%s wants to follow %s" x.follower x.followee
             let dto: Dto = {
                     message = "FollowResponse"
                     username = x.username
@@ -354,7 +389,7 @@ let Server (mailbox: Actor<_>) =
                         response = ""
                         followers = []
                         tweetId = retweetCount
-                        tweet = retwit.[0]
+                        tweet = if retwit.Length > 0 then retwit.[0] else ""
                         tweets = []
                         mentions = [("","")]
                         retweets = [(-1,"")]
@@ -433,7 +468,7 @@ let Server (mailbox: Actor<_>) =
                     tweet = ""
                     tweets = []
                     mentions = []
-                    retweets = getMyReTweets(x.username)
+                    retweets = []
                     tagTweets = [(-1,"")]
                     logoutMessage = ""
                     followee = ""
@@ -441,6 +476,12 @@ let Server (mailbox: Actor<_>) =
                     tag = ""
                     }
             mailbox.Sender() <! Json.serialize dto
+        | "MyStats" ->
+            for element in dictOfUsers do
+                let metrics = getMyStats(element.Key)
+                printfn "_____________________________________________________________"
+                printfn "|%s's activity metrics are %d|" element.Key metrics
+                printfn "_____________________________________________________________"
         | _ -> printfn "Invalid response(Server)"
 
         return! loop ()
