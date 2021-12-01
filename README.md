@@ -50,15 +50,15 @@ dotnet fsi Client.fsx `ipAddress-of-Server`  `number-of-users`  `simulation-time
 
 * For Zipf
 
-    [!alt](/img/zipf-def.png)
+    [!alt](zipf-def.png)
 
 * For Randomized distribution there is no such constraint on the followers count for a user.
 
 Following are the main menu option provided to any user when they log in:
-    [!alt](/img/action-3.png)
+    [!alt](action-3.png)
 
 Logout page options:
-    [!alt](/img/logout.png)
+    [!alt](logout.png)
 
 
 ### Some inferences:
@@ -67,35 +67,35 @@ Logout page options:
 * Here activity metrics for a user is defined as the number of times the users's tweets and retweets have been retweeted by all of his followers.
 
 * Mathematically,
-    [!alt](/img/activity-metrics.png)
+    [!alt](activity-metrics.png)
 * Here are some results for various activity-metrics vs users for Zipf distribution.
-    [!alt](/img/10usermetric.png)
-    [!alt](/img/50usersmetric.png)
-    [!alt](/img/100usermetric.png)
+    [!alt](10usermetric.png)
+    [!alt](50usersmetric.png)
+    [!alt](100usermetric.png)
 
 We also found out that  when there was no distribution enforced on the number of followers the activity was roughly a Gaussian distribution.
 
 * Here are some results for various activity-metrics vs users for random distribution.
-    [!alt](/img/50userrandom.png)
-    [!alt](/img/100userrandom.png)
+    [!alt](50userrandom.png)
+    [!alt](100userrandom.png)
  
 ### Performance metrics:
 * Total number of messages during the simulation period is defined as follows.
-    [!alt](/img/tot_msgs.png)
+    [!alt](tot_msgs.png)
 
 * Here are some results for the same
-    [!alt](/img/message_comparison.png)
+    [!alt](message_comparison.png)
 
 * The system is able to handle users at scale.
 * As the number of users increase the total messages in the system increase too.
 
 ## System in action:
-[!alt](/img/action-1.png)
+[!alt](action-1.png)
 
-[!alt](/img/action-2.png)
+[!alt](action-2.png)
 
-[!alt](/img/action-4.png)
+[!alt](action-4.png)
 
-[!alt](/img/action-5.png)
+[!alt](action-5.png)
 
-[!alt](/img/action-6.png)
+[!alt](action-6.png)
