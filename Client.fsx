@@ -34,7 +34,6 @@ let mutable numNodes = 0
 let mutable distributionType = "Randomized"
 let mutable numSeconds = 0
 let mutable messageExchanges = 0
-let mutable registeredUsers = 0
 let actorList =  List<IActorRef>()
 let mutable supervisor: IActorRef = null
 let mutable randomUsers = []
@@ -109,6 +108,42 @@ let simulateDto: Dto = {
     tag = ""
 }
 
+let statsDto: Dto = {
+    message = "MyStats"
+    username = ""
+    password = ""
+    response = ""
+    followers = []
+    tweetId = -1
+    tweet = ""
+    tweets = [(-1,"")]
+    mentions = [("","")]
+    retweets = [(-1,"")]
+    tagTweets = [(-1,"")]
+    logoutMessage = ""
+    followee = ""
+    follower = ""
+    tag = ""
+}
+
+let SysstatsDto: Dto = {
+    message = "SystemStats"
+    username = ""
+    password = ""
+    response = ""
+    followers = []
+    tweetId = -1
+    tweet = ""
+    tweets = [(-1,"")]
+    mentions = [("","")]
+    retweets = [(-1,"")]
+    tagTweets = [(-1,"")]
+    logoutMessage = ""
+    followee = ""
+    follower = ""
+    tag = ""
+}
+
 let getRandomUser() =
     let rnd = System.Random();
     match randomUsers.Length with
@@ -124,9 +159,7 @@ let User(userName: string)(mailbox: Actor<_>) =
             let msg = x.message
             match msg with
             | "Register" as r ->
-                printfn "%s Register with an username and password to continue on Chirp! ..." userName
-                printf "Username: /"
-                printf "Password: "
+                printfn "Register with an username and password to continue on Chirp! ..."
                 let userpassword = ranStr 10
                 let dto: Dto = {
                     message = "RegisterRequest"
@@ -576,9 +609,27 @@ let Supervisor(mailbox: Actor<_>) =
                     }
                     server.Tell(Json.serialize followDto, actorList.[j])
             | "MyStats" ->
-                printfn "Asking Stats"
                 let dto: Dto = {
                     message = "MyStats"
+                    username = ""
+                    password = ""
+                    response = ""
+                    followers = []
+                    tweetId = -1
+                    tweet = ""
+                    tweets = [(-1,"")]
+                    mentions = [("","")]
+                    retweets = [(-1,"")]
+                    tagTweets = [(-1,"")]
+                    logoutMessage = ""
+                    followee = ""
+                    follower = ""
+                    tag = ""
+                }
+                server.Tell(Json.serialize dto, mailbox.Self)
+            | "SystemStats" ->
+                let dto: Dto = {
+                    message = "SystemStats"
                     username = ""
                     password = ""
                     response = ""
@@ -622,29 +673,14 @@ let registerDto: Dto = {
 
 supervisor <! Json.serialize registerDto
 
-let statsDto: Dto = {
-    message = "MyStats"
-    username = ""
-    password = ""
-    response = ""
-    followers = []
-    tweetId = -1
-    tweet = ""
-    tweets = [(-1,"")]
-    mentions = [("","")]
-    retweets = [(-1,"")]
-    tagTweets = [(-1,"")]
-    logoutMessage = ""
-    followee = ""
-    follower = ""
-    tag = ""
-}
+
 
 let mutable Break = false
 
 while not Break do
     if watch.ElapsedMilliseconds > int64(1000*numSeconds + 5000) then
         supervisor <! Json.serialize statsDto
+        supervisor <! Json.serialize SysstatsDto
         Break <- true
         watch.Stop()
 

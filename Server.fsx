@@ -247,6 +247,11 @@ let getMyStats(username: string) =
         activityMetric <- activityMetric + retwits.Length
     activityMetric   
 
+let getTotalSystemMessages() =
+    let tot_tweets = tweets.Rows.Count
+    let tot_retweets = tweets.Rows.Count
+    tot_retweets+tot_retweets
+
 let Server (mailbox: Actor<_>) =
     let rec loop () = 
         actor {
@@ -477,13 +482,15 @@ let Server (mailbox: Actor<_>) =
                     }
             mailbox.Sender() <! Json.serialize dto
         | "MyStats" ->
+            printfn "#################################################################"
             for element in dictOfUsers do
                 let metrics = getMyStats(element.Key)
                 printfn "_____________________________________________________________"
                 printfn "|%s's activity metrics are %d|" element.Key metrics
-                printfn "_____________________________________________________________"
+            printfn "#################################################################"
+        | "SystemStats" ->
+            printfn "Total message count in the system during the entire simulation process: %d" (getTotalSystemMessages())
         | _ -> printfn "Invalid response(Server)"
-
         return! loop ()
         }
     loop ()
