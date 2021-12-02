@@ -70,15 +70,15 @@ To start the users/clients and a simulation of these users in the twitter world 
 * Mathematically,
     ![alt](/img/activity-metrics.png)
 * Here are some results for various activity-metrics vs users for Zipf distribution.
-    ![alt](/img/10usermetric.png)
-    ![alt](/img/50usersmetric.png)
-    ![alt](/img/100usermetric.png)
+    ![alt](/img/10usermetric.PNG)
+    ![alt](/img/50usersmetric.PNG)
+    ![alt](/img/100usermetric.PNG)
 
 We also found out that  when there was no distribution enforced on the number of followers the activity was roughly a Gaussian distribution.
 
 * Here are some results for various activity-metrics vs users for random distribution.
-    ![alt](/img/50userrandom.png)
-    ![alt](/img/100userrandom.png)
+    ![alt](/img/50userrandom.PNG)
+    ![alt](/img/100userrandom.PNG)
  
 ### Performance metrics:
 * Total number of messages during the simulation period is defined as follows.
