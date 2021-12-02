@@ -24,12 +24,12 @@ A twitter simulator using akka actor model in F#
 >The same ip needs to be used afterwards for further process.
 
 1. Sever/Twitter Engine start:
-To start the twitter engine , open a terminal and type the following command:
-**_dotnet fsi Server.fsx_**
+To start the twitter engine , open a terminal and type the following command:\
+    **dotnet fsi Server.fsx**
 
 2. Client start:
-To start the users/clients and a simulation of these users in the twitter world typw the following command in another terminal:
-dotnet fsi Client.fsx `ipAddress-of-Server`  `number-of-users`  `simulation-time-in-seconds`
+To start the users/clients and a simulation of these users in the twitter world typw the following command in another terminal:\
+**dotnet fsi Client.fsx `<ipAddress-of-Server>`  `<number-of-users>`  `<simulation-time-in-seconds>`**
 
 
 ##### * Note the term subscribe and follow are used interchangeably in the report.
@@ -50,15 +50,16 @@ dotnet fsi Client.fsx `ipAddress-of-Server`  `number-of-users`  `simulation-time
 
 * For Zipf
 
-    [!alt](zipf-def.png)
+    ![alt](/img/zipf-def.png)
 
 * For Randomized distribution there is no such constraint on the followers count for a user.
 
-Following are the main menu option provided to any user when they log in:
-    [!alt](action-3.png)
+* Following are the main menu option provided to any user when they log in:
+    ![alt](/img/action-3.png)
 
-Logout page options:
-    [!alt](logout.png)
+* Logout page options:
+    
+    ![alt](/img/logout.png)
 
 
 ### Some inferences:
@@ -67,35 +68,35 @@ Logout page options:
 * Here activity metrics for a user is defined as the number of times the users's tweets and retweets have been retweeted by all of his followers.
 
 * Mathematically,
-    [!alt](activity-metrics.png)
+    ![alt](/img/activity-metrics.png)
 * Here are some results for various activity-metrics vs users for Zipf distribution.
-    [!alt](10usermetric.png)
-    [!alt](50usersmetric.png)
-    [!alt](100usermetric.png)
+    ![alt](/img/10usermetric.png)
+    ![alt](/img/50usersmetric.png)
+    ![alt](/img/100usermetric.png)
 
 We also found out that  when there was no distribution enforced on the number of followers the activity was roughly a Gaussian distribution.
 
 * Here are some results for various activity-metrics vs users for random distribution.
-    [!alt](50userrandom.png)
-    [!alt](100userrandom.png)
+    ![alt](/img/50userrandom.png)
+    ![alt](/img/100userrandom.png)
  
 ### Performance metrics:
 * Total number of messages during the simulation period is defined as follows.
-    [!alt](tot_msgs.png)
+    ![alt](/img/tot_msgs.png)
 
 * Here are some results for the same
-    [!alt](message_comparison.png)
+    ![alt](/img/message_comparison.png)
 
 * The system is able to handle users at scale.
 * As the number of users increase the total messages in the system increase too.
 
 ## System in action:
-[!alt](action-1.png)
+* ![alt](/img/action-1.png)
 
-[!alt](action-2.png)
+* ![alt](/img/action-2.png)
 
-[!alt](action-4.png)
+* ![alt](/img/action-4.png)
 
-[!alt](action-5.png)
+* ![alt](/img/action-5.png)
 
-[!alt](action-6.png)
+* ![alt](/img/action-6.png)
