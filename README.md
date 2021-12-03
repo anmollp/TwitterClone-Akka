@@ -4,18 +4,6 @@ A twitter simulator using akka actor model in F#
 
 ## COP5615–Distributed Operating System Principles– Project 4 Part 1
 
-**Project members:**
-
-`Anmol Lingan Gouda Patil (UFID: 19673150)`
-
-`Shashanka Bhat (UFID: 34524261)`
-
-  
-
-**Basic Requirement:** Finished
-
-**Bonus:** Finished
-
   
 ### How to run:
 
@@ -64,7 +52,7 @@ To start the users/clients and a simulation of these users in the twitter world 
 
 ### Some inferences:
 
-* We found that when the users followed a Zipf Distribution with respect to the number of followers each user has, the activity metrics of all the users also followed a near Zipf Distribution.
+* When the users followed a Zipf Distribution with respect to the number of followers each user has, the activity metrics of all the users also followed a near Zipf Distribution.
 * Here activity metrics for a user is defined as the number of times the users's tweets and retweets have been retweeted by all of his followers.
 
 * Mathematically,
@@ -74,7 +62,7 @@ To start the users/clients and a simulation of these users in the twitter world 
     ![alt](/img/50usersmetric.PNG)
     ![alt](/img/100usermetric.PNG)
 
-We also found out that  when there was no distribution enforced on the number of followers the activity was roughly a Gaussian distribution.
+Also when there was no distribution enforced on the number of followers the activity was roughly a Gaussian distribution.
 
 * Here are some results for various activity-metrics vs users for random distribution.
     ![alt](/img/50userrandom.PNG)
